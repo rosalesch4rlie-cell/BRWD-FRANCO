@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BRWD. Coffee and Tea | Self-Service Kiosk</title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <style>
+        :root {
+            --primary-color: #2b2521; 
+            --accent-color: #c5a880;  
+            --bg-color: #f5f0ea;      
+            --card-bg: #ffffff;
+            --text-color: #1a1a1a;
+            --light-text: #666666;
+            --border-color: #e5dec9;
+            --success-color: #2ed573;
+            --gcash-blue: #005ce6;
+            --gcash-bg: #f4f6f9;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding-bottom: 60px;
+            overflow-x: hidden;
+        }
+        .splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #ffffff;
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.6s cubic-bezier(0.77, 0, 0.175, 1), opacity 0.5s ease;
+        }
+        .splash-screen.hide {
+            transform: translateY(-100%);
+            opacity: 0;
+            pointer-events: none;
+        }
+        .splash-container {
+            text-align: center;
+            cursor: pointer;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            max-width: 500px;
+            width: 100%;
+        }
+        .splash-logo {
+            width: 100%;
+            max-width: 280px;
+            height: auto;
+            object-fit: contain;
+            margin-bottom: 30px;
+        }
+        .start-order-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: 2px solid var(--primary-color);
+            padding: 16px 40px;
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        header {
+            background-color: var(--primary-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .logo-container { color: white; text-align: left; }
+        .logo { font-size: 28px; font-weight: 900; letter-spacing: 2px; line-height: 1; }
+        .tagline { font-size: 11px; letter-spacing: 3px; color: var(--accent-color); text-transform: uppercase; margin-top: 4px; }
+        .header-right { display: flex; align-items: center; gap: 15px; }
+        .branch { color: #fff; font-size: 12px; background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 12px; }
+        .menu-toggle-btn { display: none; background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 5px; z-index: 110; }
+        nav { background-color: var(--primary-color); overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+        nav::-webkit-scrollbar { display: none; }
+        .category-tabs { display: flex; justify-content: start; max-width: 1200px; margin: 0 auto; padding: 10px 20px 15px 20px; gap: 10px; }
+        .category-btn { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); padding: 8px 18px; font-size: 14px; font-weight: 600; color: #e0e0e0; cursor: pointer; border-radius: 20px; transition: all 0.3s ease; }
+        .category-btn.active { background-color: var(--accent-color); color: var(--primary-color); border-color: var(--accent-color); }
+        main { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
+        .menu-title { font-size: 24px; margin-bottom: 20px; position: relative; padding-left: 15px; }
+        .menu-title::before { content: ''; position: absolute; left: 0; top: 4px; bottom: 4px; width: 5px; background-color: var(--accent-color); border-radius: 4px; }
+        .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .menu-item { background-color: var(--card-bg); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); border: 1px solid var(--border-color); display: flex; flex-direction: column; justify-content: space-between; padding: 20px; }
+        .item-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+        .item-glyph { font-size: 32px; background: #fdfbf7; padding: 10px; border-radius: 12px; border: 1px solid var(--border-color); }
+        .item-name { font-size: 18px; font-weight: 700; color: var(--primary-color); flex: 1; margin-left: 12px; }
+        .size-selector-container { margin: 15px 0; }
+        .size-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--light-text); margin-bottom: 5px; display: block; }
+        .size-select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background-color: #faf8f5; font-weight: 600; color: var(--text-color); outline: none; cursor: pointer; }
+        .item-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 15px; border-top: 1px dashed var(--border-color); }
+        .item-price { font-weight: 800; font-size: 20px; color: var(--primary-color); }
+        .add-btn { background-color: var(--primary-color); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 400; display: none; align-items: center; justify-content: center; padding: 20px; }
+        .modal-overlay.show { display: flex; }
+        .custom-modal { background-color: var(--card-bg); width: 100%; max-width: 480px; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.3); display: flex; flex-direction: column; max-height: 85vh; animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal-header { background-color: var(--primary-color); color: white; padding: 20px; }
+        .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+        .custom-section { margin-bottom: 22px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color); }
+        .custom-section-title { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; color: var(--primary-color); margin-bottom: 12px; display: flex; justify-content: space-between; }
+        .title-badge { font-size: 11px; background-color: #eae3d2; padding: 2px 8px; border-radius: 4px; color: #554a42; }
+        .option-label { display: flex; align-items: center; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 8px; cursor: pointer; font-weight: 600; background-color: #fdfcf9; }
+        .option-label input { margin-right: 12px; width: 18px; height: 18px; }
+        .addon-price { margin-left: auto; color: var(--light-text); font-size: 13px; }
+        .modal-footer { padding: 20px; border-top: 1px solid var(--border-color); background-color: #faf8f5; display: flex; gap: 12px; }
+        .cancel-modal-btn { background: none; border: 1px solid var(--border-color); padding: 14px 20px; border-radius: 12px; font-weight: 600; color: var(--light-text); cursor: pointer; }
+        .confirm-modal-btn { flex: 1; background-color: var(--primary-color); color: white; border: none; padding: 14px; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .cart-icon-btn { position: fixed; bottom: 30px; right: 30px; background-color: var(--primary-color); color: white; border: none; width: 65px; height: 65px; border-radius: 50%; font-size: 26px; cursor: pointer; box-shadow: 0 4px 20px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; z-index: 200; border: 2px solid var(--accent-color); }
+        .cart-count { position: absolute; top: -2px; right: -2px; background-color: var(--accent-color); color: var(--primary-color); font-size: 12px; font-weight: bold; padding: 4px 8px; border-radius: 12px; }
+        .cart-sidebar { position: fixed; top: 0; right: -420px; width: 100%; max-width: 420px; height: 100%; background-color: var(--card-bg); box-shadow: -5px 0 25px rgba(0,0,0,0.15); z-index: 300; transition: right 0.3s ease; display: flex; flex-direction: column; }
+        .cart-sidebar.open { right: 0; }
+        .cart-header { padding: 24px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background-color: var(--primary-color); color: white; }
+        .close-cart { background: none; border: none; font-size: 28px; cursor: pointer; color: var(--accent-color); }
+        .cart-items-list { flex: 1; overflow-y: auto; padding: 20px; }
+        .cart-item { display: flex; justify-content: space-between; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color); }
+        .cart-item-meta { font-size: 11px; color: #887d73; display: block; margin-bottom: 6px; }
+        .quantity-controls { display: flex; align-items: center; gap: 12px; margin-top: 5px; }
+        .qty-btn { background-color: var(--bg-color); border: 1px solid var(--border-color); width: 28px; height: 28px; border-radius: 50%; cursor: pointer; }
+        .cart-footer { padding: 24px; border-top: 1px solid var(--border-color); background-color: #faf8f5; }
+        .total-container { display: flex; justify-content: space-between; font-size: 19px; font-weight: 800; margin-bottom: 20px; }
+        .checkout-btn { width: 100%; background-color: var(--primary-color); color: white; border: none; padding: 16px; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 250; display: none; }
+        .backdrop.show { display: block; }
+        .gcash-popup-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 500; display: none; align-items: center; justify-content: center; }
+        .gcash-popup-overlay.show { display: flex; }
+        .gcash-popup-card { background-color: var(--gcash-bg); width: 100%; max-width: 410px; height: 100%; display: flex; flex-direction: column; animation: slideUp 0.3s ease; }
+        .gcash-official-header { background-color: var(--gcash-blue); padding: 16px 20px; display: flex; align-items: center; color: #ffffff; }
+        .gcash-back-arrow { font-size: 22px; margin-right: 15px; cursor: pointer; }
+        .gcash-header-title { font-size: 18px; font-weight: 600; }
+        .gcash-invoice-body { padding: 20px; flex: 1; overflow-y: auto; }
+        .gcash-white-card { background-color: #ffffff; border-radius: 12px; padding: 24px 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); text-align: center; }
+        .gcash-pay-to-label { font-size: 13px; color: #7c8085; font-weight: 600; margin-bottom: 6px; }
+        .gcash-merchant-display-name { font-size: 22px; font-weight: 700; color: #0b121f; margin-bottom: 4px; }
+        .gcash-merchant-number { font-size: 14px; color: #5d636d; font-weight: 500; margin-bottom: 20px; }
+        .gcash-amount-title { font-size: 13px; color: #7c8085; font-weight: 600; margin-bottom: 4px; border-top: 1px solid #f0f2f5; padding-top: 20px; }
+        .gcash-amount-large-text { font-size: 38px; font-weight: 800; color: #0b121f; }
+        .gcash-qr-instruction-box { background-color: #ffffff; border-radius: 12px; padding: 24px 20px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+        .gcash-box-heading { font-size: 15px; font-weight: 700; color: #0b121f; margin-bottom: 4px; }
+        .gcash-box-subheading { font-size: 13px; color: #6c727a; margin-bottom: 20px; }
+        .clean-qr-frame-viewport { width: 230px; height: 230px; margin: 0 auto 20px auto; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; background-color: #ffffff; }
+        .clean-qr-frame-viewport img { width: 100%; height: 100%; object-fit: contain; }
+        .gcash-app-trigger-action-btn { width: 100%; background-color: var(--gcash-blue); color: #ffffff; border: none; padding: 15px; border-radius: 25px; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(0, 92, 230, 0.15); }
+        @media (max-width: 768px) {
+            .menu-toggle-btn { display: block; }
+            .branch { display: none; }
+            nav { max-height: 0; overflow: hidden; width: 100%; position: absolute; top: 100%; left: 0; box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
+            nav.open { max-height: 450px; overflow-y: auto; }
+            .category-tabs { flex-direction: column; padding: 15px; gap: 8px; white-space: normal; }
+            .category-btn { width: 100%; text-align: left; border-radius: 8px; padding: 12px 16px; }
+            .menu-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 15px; }
+            .cart-sidebar { width: 100%; max-width: 100%; right: -100%; }
+        }
+        @media (max-width: 480px) {
+            .logo { font-size: 24px; }
+            .cart-icon-btn { width: 55px; height: 55px; bottom: 20px; right: 20px; font-size: 22px; }
+        }
+    </style>
+</head>
+<body>
+<div class="splash-screen" id="splashScreen">
+    <div class="splash-container" onclick="exitSplashScreen()">
+        <img src="logo.jpg" alt="BRWD. Logo" class="splash-logo" onerror="this.src='https://placehold.co/400x400?text=BRWD.+COFFEE'">
+        <button class="start-order-btn"><span>Start Ordering</span> ☕</button>
+    </div>
+</div>
+<header>
+    <div class="header-container">
+        <div class="logo-container">
+            <div class="logo">BRWD.</div>
+            <div class="tagline">Coffee and Tea</div>
+        </div>
+        <div class="header-right">
+            <div class="branch">📍 Franco, Tondo, Manila</div>
+            <button class="menu-toggle-btn" onclick="toggleMobileNav()">☰</button>
+        </div>
+    </div>
+    <nav id="mobileNav">
+        <div class="category-tabs" id="categoryTabs">
+            <button class="category-btn active" onclick="filterCategory('coffee')">☕ Coffee</button>
+            <button class="category-btn" onclick="filterCategory('milktea')">🧋 Milk Tea</button>
+            <button class="category-btn" onclick="filterCategory('frappe')">🥤 Frappe</button>
+            <button class="category-btn" onclick="filterCategory('frappesupreme')">👑 Frappe Supreme</button>
+            <button class="category-btn" onclick="filterCategory('fruittea')">🍹 Fruit Tea</button>
+            <button class="category-btn" onclick="filterCategory('pastry')">🥐 Pastry</button>
+            <button class="category-btn" onclick="filterCategory('special')">✨ Special Menu</button>
+        </div>
+    </nav>
+</header>
+<main>
+    <h2 class="menu-title" id="menuTitle">Coffee Menu</h2>
+    <div class="menu-grid" id="menuGrid"></div>
+</main>
+<div class="modal-overlay" id="customModalOverlay">
+    <div class="custom-modal">
+        <div class="modal-header">
+            <h3 id="modalProductName">Customize Drink</h3>
+            <p id="modalProductSize">Variant Details</p>
+        </div>
+        <div class="modal-body">
+            <div class="custom-section" id="grainSection">
+                <div class="custom-section-title">Coffee Grains <span class="title-badge">Choose 1</span></div>
+                <label class="option-label"><input type="radio" name="coffeeGrain" value="Arabica" checked> Arabica</label>
+                <label class="option-label"><input type="radio" name="coffeeGrain" value="Robusta"> Robusta</label>
+                <label class="option-label"><input type="radio" name="coffeeGrain" value="Barako"> Barako</label>
+            </div>
+            <div class="custom-section" id="sugarSection">
+                <div class="custom-section-title">Sugar Level <span class="title-badge">Choose 1</span></div>
+                <label class="option-label"><input type="radio" name="sugarLevel" value="0%"> 0% (Unsweetened)</label>
+                <label class="option-label"><input type="radio" name="sugarLevel" value="25%"> 25%</label>
+                <label class="option-label"><input type="radio" name="sugarLevel" value="50%"> 50%</label>
+                <label class="option-label"><input type="radio" name="sugarLevel" value="75%"> 75%</label>
+                <label class="option-label"><input type="radio" name="sugarLevel" value="100%" checked> 100% (Standard)</label>
+            </div>
+            <div class="custom-section" id="addonsSection">
+                <div class="custom-section-title">Add-Ons <span class="title-badge">Optional</span></div>
+                <label class="option-label"><input type="checkbox" name="addons" value="Cream Cheese" data-price="9"> Cream Cheese <span class="addon-price">+₱9.00</span></label>
+                <label class="option-label"><input type="checkbox" name="addons" value="Pearls" data-price="9"> Pearls <span class="addon-price">+₱9.00</span></label>
+                <label class="option-label"><input type="checkbox" name="addons" value="Chocolate Chip" data-price="9"> Chocolate Chip <span class="addon-price">+₱9.00</span></label>
+                <label class="option-label"><input type="checkbox" name="addons" value="Whipped Cream" data-price="9"> Whipped Cream <span class="addon-price">+₱9.00</span></label>
+                <label class="option-label"><input type="checkbox" name="addons" value="Coffee Jelly" data-price="9"> Coffee Jelly <span class="addon-price">+₱9.00</span></label>
+                <label class="option-label"><input type="checkbox" name="addons" value="Cream Puff" data-price="9"> Cream Puff <span class="addon-price">+₱9.00</span></label>
+                <label class="option-label"><input type="checkbox" name="addons" value="Crushed Oreo" data-price="9"> Crushed Oreo <span class="addon-price">+₱9.00</span></label>
+                <label class="option-label"><input type="checkbox" name="addons" value="Crystals" data-price="9"> Crystals <span class="addon-price">+₱9.00</span></label>
+                <label class="option-label"><input type="checkbox" name="addons" value="Extra Coffee Shot" data-price="9"> Extra Coffee Shot <span class="addon-price">+₱9.00</span></label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="cancel-modal-btn" onclick="closeCustomModal()">Cancel</button>
+            <button class="confirm-modal-btn" id="modalConfirmBtn" onclick="">Add to Tray</button>
+        </div>
+    </div>
+</div>
+<div class="modal-overlay" id="checkoutModalOverlay">
+    <div class="custom-modal">
+        <div class="modal-header">
+            <h3>Complete Your Order</h3>
+            <p>Select your payment options below</p>
+        </div>
+        <div class="modal-body" id="checkoutStep1">
+            <div class="custom-section" style="border-bottom: none;">
+                <div class="custom-section-title">Select Payment Method</div>
+                <label class="option-label" style="padding: 16px;"><input type="radio" name="paymentMethod" value="Counter" checked> 💵 Pay at Counter</label>
+                <label class="option-label" style="padding: 16px;"><input type="radio" name="paymentMethod" value="GCash"> 📱 GCash Payment</label>
+            </div>
+        </div>
+        <div class="modal-body" id="checkoutStep2" style="display: none;">
+            <div class="custom-section" style="border-bottom: none;">
+                <div class="custom-section-title">Enter Your Name</div>
+                <input type="text" id="customerNameInput" placeholder="e.g. Juan Dela Cruz" style="width: 100%; padding: 14px; border: 1px solid var(--border-color); border-radius: 10px; font-size: 16px; font-weight: 600; outline: none;">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="cancel-modal-btn" onclick="closeCheckoutModal()">Cancel</button>
+            <button class="confirm-modal-btn" id="checkoutNextBtn" onclick="processCheckoutNext()">Next Step</button>
+        </div>
+    </div>
+</div>
+<div class="gcash-popup-overlay" id="gcashPopupOverlay">
+    <div class="gcash-popup-card">
+        <div class="gcash-official-header">
+            <span class="gcash-back-arrow" onclick="closeGcashPopupAndCancel()">←</span>
+            <span class="gcash-header-title">Send Money</span>
+        </div>
+        <div class="gcash-invoice-body">
+            <div class="gcash-white-card">
+                <div class="gcash-pay-to-label">You are paying</div>
+                <div class="gcash-merchant-display-name">BRWD. COFFEE AND TEA</div>
+                <div class="gcash-merchant-number">Merchant No: 0917 XXX XXXX</div>
+                <div class="gcash-amount-title">Amount</div>
+                <div class="gcash-amount-large-text" id="gcashModalAmountDisplay">PHP 0.00</div>
+            </div>
+            <div class="gcash-white-card" style="padding: 20px 16px;">
+                <button onclick="commitOrderAndLaunchGCashApp()" class="gcash-app-trigger-action-btn">
+                    Open GCash App
+                </button>
+            </div>
+            <div class="gcash-qr-instruction-box">
+                <div class="gcash-box-heading">Scan to Pay</div>
+                <div class="gcash-box-subheading">If ordering on a kiosk or PC, scan this matrix instead</div>
+                <div class="clean-qr-frame-viewport">
+                    <img src="25ad6cdf-0dba-43a2-95bb-3aa6672acaea.jpg" alt="GCash QR Code" onerror="this.src='https://placehold.co/250x250?text=QR'">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<button class="cart-icon-btn" onclick="toggleCart()">☕ <span class="cart-count" id="cartCount">0</span></button>
+<div class="backdrop" id="backdrop" onclick="toggleCart()"></div>
+<div class="cart-sidebar" id="cartSidebar">
+    <div class="cart-header">
+        <h3>Your Tray</h3>
+        <button class="close-cart" onclick="toggleCart()">×</button>
+    </div>
+    <div class="cart-items-list" id="cartItemsList"></div>
+    <div class="cart-footer">
+        <div class="total-container">
+            <span>Total Amount:</span>
+            <span id="cartTotal">₱0.00</span>
+        </div>
+        <button class="checkout-btn" id="startCheckoutBtn" onclick="startCheckoutSequence()">Place Order</button>
+    </div>
+</div>
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyCOMZVeg3Y7Tj6VQEVBxKO02MTPKr8Ockc",
+        authDomain: "brwd-coffee.firebaseapp.com",
+        projectId: "brwd-coffee",
+        storageBucket: "brwd-coffee.firebasestorage.app",
+        messagingSenderId: "1095603563895",
+        appId: "1:1095603563895:web:7b84a643a192fbbc374572",
+        measurementId: "G-9CE5Q61VJ1"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const menuProducts = [
+        { id: "c1", name: 'Mocha', category: 'coffee', glyph: '☕', prices: { '16oz Iced': 49, '22oz Iced': 59, '12oz Hot': 49 } },
+        { id: "c2", name: 'Caramel Macchiato', category: 'coffee', glyph: '☕', prices: { '16oz Iced': 49, '22oz Iced': 59, '12oz Hot': 49 } },
+        { id: "c3", name: 'Salted Caramel', category: 'coffee', glyph: '☕', prices: { '16oz Iced': 49, '22oz Iced': 59, '12oz Hot': 49 } },
+        { id: "c4", name: 'Vanilla', category: 'coffee', glyph: '☕', prices: { '16oz Iced': 49, '22oz Iced': 59, '12oz Hot': 49 } },
+        { id: "c5", name: 'Sweet Black', category: 'coffee', glyph: '☕', prices: { '16oz Iced': 49, '22oz Iced': 59, '12oz Hot': 49 } },
+        { id: "c6", name: 'Cafe Latte', category: 'coffee', glyph: '☕', prices: { '16oz Iced': 49, '22oz Iced': 59, '12oz Hot': 49 } },
+        { id: "c7", name: 'Coffee Matcha', category: 'coffee', glyph: '🍵', prices: { '16oz Iced': 49, '22oz Iced': 59, '12oz Hot': 49 } },
+        { id: "c8", name: 'Americano', category: 'coffee', glyph: '☕', prices: { '16oz Iced': 49, '22oz Iced': 59, '12oz Hot': 49 } },
+        { id: "m1", name: 'Dark Choco Milk Tea', category: 'milktea', glyph: '🧋', prices: { '16oz': 39, '22oz': 49 } },
+        { id: "m2", name: 'Wintermelon Milk Tea', category: 'milktea', glyph: '🧋', prices: { '16oz': 39, '22oz': 49 } },
+        { id: "m3", name: 'Okinawa Milk Tea', category: 'milktea', glyph: '🧋', prices: { '16oz': 39, '22oz': 49 } },
+        { id: "m4", name: 'Cheesecake Milk Tea', category: 'milktea', glyph: '🧋', prices: { '16oz': 39, '22oz': 49 } },
+        { id: "m5", name: 'Salted Caramel Milk Tea', category: 'milktea', glyph: '🧋', prices: { '16oz': 39, '22oz': 49 } },
+        { id: "m6", name: 'Cookies and Cream Milk Tea', category: 'milktea', glyph: '🧋', prices: { '16oz': 39, '22oz': 49 } },
+        { id: "m7", name: 'Taro Milk Tea', category: 'milktea', glyph: '🧋', prices: { '16oz': 39, '22oz': 49 } },
+        { id: "m8", name: 'Matcha Milk Tea', category: 'milktea', glyph: '🧋', prices: { '16oz': 39, '22oz': 49 } },
+        { id: "m9", name: 'Chocolate Milk Tea', category: 'milktea', glyph: '🧋', prices: { '16oz': 39, '22oz': 49 } },
+        { id: "m10", name: 'Red Velvet Milk Tea', category: 'milktea', glyph: '🧋', prices: { '16oz': 39, '22oz': 49 } },
+        { id: "m11", name: 'Choco Kisses Milk Tea', category: 'milktea', glyph: '🧋', prices: { '16oz': 39, '22oz': 49 } },
+        { id: "m12", name: 'Strawberry Milk Tea', category: 'milktea', glyph: '🧋', prices: { '16oz': 39, '22oz': 49 } },
+        { id: "f1", name: 'Vanilla Frappe', category: 'frappe', glyph: '🥤', prices: { '16oz': 59, '22oz': 69 } },
+        { id: "f2", name: 'Mocha Frappe', category: 'frappe', glyph: '🥤', prices: { '16oz': 59, '22oz': 69 } },
+        { id: "f3", name: 'Taro Frappe', category: 'frappe', glyph: '🥤', prices: { '16oz': 59, '22oz': 69 } },
+        { id: "f4", name: 'Caramel Macchiato Frappe', category: 'frappe', glyph: '🥤', prices: { '16oz': 59, '22oz': 69 } },
+        { id: "f5", name: 'Java Chip Frappe', category: 'frappe', glyph: '🥤', prices: { '16oz': 59, '22oz': 69 } },
+        { id: "f6", name: 'Cookies and Cream Frappe', category: 'frappe', glyph: '🥤', prices: { '16oz': 59, '22oz': 69 } },
+        { id: "f7", name: 'Coffee Jelly Frappe', category: 'frappe', glyph: '🥤', prices: { '16oz': 59, '22oz': 69 } },
+        { id: "f8", name: 'Cheesecake Frappe', category: 'frappe', glyph: '🥤', prices: { '16oz': 59, '22oz': 69 } },
+        { id: "f9", name: 'Chocolate Frappe', category: 'frappe', glyph: '🥤', prices: { '16oz': 59, '22oz': 69 } },
+        { id: "f10", name: 'Matcha Frappe', category: 'frappe', glyph: '🥤', prices: { '16oz': 59, '22oz': 69 } },
+        { id: "f11", name: 'Strawberry Frappe', category: 'frappe', glyph: '🥤', prices: { '22oz': 69 } },
+        { id: "fs1", name: 'Vanilla Frappe Supreme', category: 'frappesupreme', glyph: '👑', prices: { '16oz': 77, '22oz': 87 } },
+        { id: "fs2", name: 'Mocha Frappe Supreme', category: 'frappesupreme', glyph: '👑', prices: { '16oz': 77, '22oz': 87 } },
+        { id: "fs3", name: 'Taro Frappe Supreme', category: 'frappesupreme', glyph: '👑', prices: { '16oz': 77, '22oz': 87 } },
+        { id: "fs4", name: 'Caramel Macchiato Frappe Supreme', category: 'frappesupreme', glyph: '👑', prices: { '16oz': 77, '22oz': 87 } },
+        { id: "fs5", name: 'Java Chip Frappe Supreme', category: 'frappesupreme', glyph: '👑', prices: { '16oz': 77, '22oz': 87 } },
+        { id: "fs6", name: 'Cookies and Cream Frappe Supreme', category: 'frappesupreme', glyph: '👑', prices: { '16oz': 77, '22oz': 87 } },
+        { id: "fs7", name: 'Coffee Jelly Frappe Supreme', category: 'frappesupreme', glyph: '👑', prices: { '16oz': 77, '22oz': 87 } },
+        { id: "fs8", name: 'Cheesecake Frappe Supreme', category: 'frappesupreme', glyph: '👑', prices: { '16oz': 77, '22oz': 87 } },
+        { id: "fs9", name: 'Chocolate Frappe Supreme', category: 'frappesupreme', glyph: '👑', prices: { '16oz': 77, '22oz': 87 } },
+        { id: "fs10", name: 'Matcha Frappe Supreme', category: 'frappesupreme', glyph: '👑', prices: { '16oz': 77, '22oz': 87 } },
+        { id: "fs11", name: 'Strawberry Frappe Supreme', category: 'frappesupreme', glyph: '👑', prices: { '22oz': 87 } },
+        { id: "ft1", name: 'Lychee Fruit Tea', category: 'fruittea', glyph: '🍹', prices: { '16oz': 39, '22oz': 49 } },
+        { id: "ft2", name: 'Blueberry Fruit Tea', category: 'fruittea', glyph: '🍹', prices: { '16oz': 39, '22oz': 49 } },
+        { id: "ft3", name: 'Kiwi Fruit Tea', category: 'fruittea', glyph: '🍹', prices: { '16oz': 39, '22oz': 49 } },
+        { id: "ft4", name: 'Green Apple Fruit Tea', category: 'fruittea', glyph: '🍹', prices: { '16oz': 39, '22oz': 49 } },
+        { id: "ft5", name: 'Mango Fruit Tea', category: 'fruittea', glyph: '🍹', prices: { '16oz': 39, '22oz': 49 } },
+        { id: "ft6", name: 'Strawberry Fruit Tea', category: 'fruittea', glyph: '🍹', prices: { '16oz': 39, '22oz': 49 } },
+        { id: "ft7", name: 'Lemon Fruit Tea', category: 'fruittea', glyph: '🍹', prices: { '16oz': 39, '22oz': 49 } },
+        { id: "ft8", name: 'Passion Fruit Tea', category: 'fruittea', glyph: '🍹', prices: { '16oz': 39, '22oz': 49 } },
+        { id: "ft9", name: 'Honey Peach Fruit Tea', category: 'fruittea', glyph: '🍹', prices: { '16oz': 39, '22oz': 49 } },
+        { id: "p1", name: 'Musubi', category: 'pastry', glyph: '🥐', prices: { 'Standard': 45 } },
+        { id: "p2", name: 'Brownies (Solo)', category: 'pastry', glyph: '🥐', prices: { 'Standard': 55 } },
+        { id: "p3", name: 'Brownies (Pack)', category: 'pastry', glyph: '🥐', prices: { 'Standard': 115 } },
+        { id: "s1", name: 'Hot Chocolate (Non-Coffee)', category: 'special', glyph: '🍫', prices: { '12oz Hot': 49 } },
+        { id: "s2", name: 'Dark Strawberry Frappe', category: 'special', glyph: '🍓', prices: { '16oz': 79, '22oz': 89 } },
+        { id: "s3", name: 'Dark Strawberry (Classic)', category: 'special', glyph: '🍓', prices: { '16oz': 49, '22oz': 59 } },
+        { id: "s4", name: 'Yogurt Fruit Drinks', category: 'special', glyph: '🥛', prices: { '16oz': 49, '22oz': 59 } },
+        { id: "s5", name: 'Strawberry Matcha', category: 'special', glyph: '🍵', prices: { '16oz': 49, '22oz': 59 } },
+        { id: "s6", name: 'Matcha Latte', category: 'special', glyph: '🍵', prices: { '16oz': 49, '22oz': 59 } },
+        { id: "s7", name: 'Fruit Milk', category: 'special', glyph: '🥛', prices: { '16oz': 49, '22oz': 59 } }
+    ];
+
+    let cart = [];
+    let currentCategory = 'coffee';
+    let currentCheckoutStep = 1;
+    let cachedOrderPayload = null; 
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const savedCart = localStorage.getItem('brwd_cart_data');
+        if (savedCart) {
+            try { cart = JSON.parse(savedCart); } catch (e) { cart = []; }
+        }
+
+        // Logic: If they haven't "started" ordering yet, show splash screen
+        if (!localStorage.getItem('has_started_ordering')) {
+            document.getElementById('splashScreen').classList.remove('hide');
+        } else {
+            document.getElementById('splashScreen').classList.add('hide');
+        }
+
+        syncCategoryUIState();
+        renderActiveCategoryGrid();
+        syncCartUI(); 
+    });
+
+    function exitSplashScreen() { 
+        document.getElementById('splashScreen').classList.add('hide'); 
+        localStorage.setItem('has_started_ordering', 'true');
+    }
+    
+    function toggleMobileNav() { document.getElementById('mobileNav').classList.toggle('open'); }
+    function toggleCart() {
+        document.getElementById('cartSidebar').classList.toggle('open');
+        document.getElementById('backdrop').classList.toggle('show');
+    }
+
+    function filterCategory(catKey) {
+        currentCategory = catKey;
+        const lookup = {
+            coffee: "Coffee Menu", milktea: "Milk Tea Menu", frappe: "Regular Frappe Menu",
+            frappesupreme: "Frappe Supreme Menu", fruittea: "Fruit Tea Menu", pastry: "Pastry Menu", special: "Special Menu"
+        };
+        document.getElementById('menuTitle').innerText = lookup[catKey] || "Menu Items";
+        syncCategoryUIState();
+        renderActiveCategoryGrid();
+        const navEl = document.getElementById('mobileNav');
+        if(navEl.classList.contains('open')) navEl.classList.remove('open');
+    }
+
+    function syncCategoryUIState() {
+        const btns = document.querySelectorAll('.category-btn');
+        btns.forEach(btn => {
+            if(btn.getAttribute('onclick').includes(`'${currentCategory}'`)) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    }
+
+    function renderActiveCategoryGrid() {
+        const grid = document.getElementById('menuGrid');
+        grid.innerHTML = "";
+        const targets = menuProducts.filter(p => p.category === currentCategory);
+        
+        targets.forEach(p => {
+            const card = document.createElement('div');
+            card.className = "menu-item";
+            let variantsMarkup = "";
+            const sizes = Object.keys(p.prices);
+            if(sizes.length > 1) {
+                variantsMarkup = `<div class="size-selector-container">
+                    <span class="size-label">Select Size Variant</span>
+                    <select class="size-select" id="select-${p.id}" onchange="updateCardPriceDisplay('${p.id}')">
+                        ${sizes.map(s => `<option value="${s}">${s}</option>`).join('')}
+                    </select>
+                </div>`;
+            } else {
+                variantsMarkup = `<div class="size-selector-container" style="visibility:hidden; margin:5px 0;"><select class="size-select" id="select-${p.id}"><option value="${sizes[0]}">${sizes[0]}</option></select></div>`;
+            }
+            const primarySize = sizes[0];
+            const basePrice = p.prices[primarySize];
+
+            card.innerHTML = `
+                <div>
+                    <div class="item-header">
+                        <div class="item-glyph">${p.glyph}</div>
+                        <h3 class="item-name">${p.name}</h3>
+                    </div>
+                    ${variantsMarkup}
+                </div>
+                <div class="item-footer">
+                    <span class="item-price" id="price-view-${p.id}">₱${basePrice}.00</span>
+                    <button class="add-btn" onclick="openCustomizationSequence('${p.id}')">Add to Tray</button>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    function updateCardPriceDisplay(prodId) {
+        const p = menuProducts.find(x => x.id === prodId);
+        const selectedSize = document.getElementById(`select-${prodId}`).value;
+        document.getElementById(`price-view-${prodId}`).innerText = `₱${p.prices[selectedSize]}.00`;
+    }
+
+    let activeSetupObject = null;
+    function openCustomizationSequence(prodId) {
+        const p = menuProducts.find(x => x.id === prodId);
+        const sizeNode = document.getElementById(`select-${prodId}`);
+        const finalSizeSelected = sizeNode ? sizeNode.value : Object.keys(p.prices)[0];
+        const baseCost = p.prices[finalSizeSelected];
+
+        activeSetupObject = { product: p, size: finalSizeSelected, cost: baseCost };
+        document.getElementById('modalProductName').innerText = p.name;
+        document.getElementById('modalProductSize').innerText = `Size: ${finalSizeSelected} — ₱${baseCost}.00`;
+
+        document.getElementById('grainSection').style.display = (p.category === 'coffee' || p.name.toLowerCase().includes('coffee')) ? "block" : "none";
+        document.getElementById('sugarSection').style.display = (p.category === 'pastry') ? "none" : "block";
+        document.getElementById('addonsSection').style.display = (p.category === 'pastry') ? "none" : "block";
+
+        const grains = document.getElementsByName('coffeeGrain'); if(grains.length > 0) grains[0].checked = true;
+        const sugarOpts = document.getElementsByName('sugarLevel'); if(sugarOpts.length > 4) sugarOpts[4].checked = true; 
+        document.querySelectorAll('#addonsSection input[type="checkbox"]').forEach(cb => cb.checked = false);
+
+        document.getElementById('modalConfirmBtn').setAttribute('onclick', `commitItemToTrayData()`);
+        document.getElementById('customModalOverlay').classList.add('show');
+    }
+
+    function closeCustomModal() { document.getElementById('customModalOverlay').classList.remove('show'); activeSetupObject = null; }
+
+    function commitItemToTrayData() {
+        if(!activeSetupObject) return;
+        const p = activeSetupObject.product;
+        let customGrain = "N/A";
+        if(p.category === 'coffee' || p.name.toLowerCase().includes('coffee')) {
+            const grainNode = document.querySelector('input[name="coffeeGrain"]:checked');
+            if(grainNode) customGrain = grainNode.value;
+        }
+        let customSugar = "N/A";
+        if(p.category !== 'pastry') {
+            const sugarNode = document.querySelector('input[name="sugarLevel"]:checked');
+            if(sugarNode) customSugar = sugarNode.value;
+        }
+        let addedFeatures = []; let featurePriceSum = 0;
+        if(p.category !== 'pastry') {
+            document.querySelectorAll('#addonsSection input[type="checkbox"]:checked').forEach(cb => {
+                addedFeatures.push(cb.value);
+                featurePriceSum += parseFloat(cb.getAttribute('data-price') || 0);
+            });
+        }
+        const unitTotalSum = activeSetupObject.cost + featurePriceSum;
+        const prospectiveTrayRecord = { id: p.id, name: p.name, size: activeSetupObject.size, grain: customGrain, sugar: customSugar, addons: addedFeatures, unitPrice: unitTotalSum, quantity: 1 };
+
+        const matchedIndex = cart.findIndex(i => i.id === prospectiveTrayRecord.id && i.size === prospectiveTrayRecord.size && i.grain === prospectiveTrayRecord.grain && i.sugar === prospectiveTrayRecord.sugar && JSON.stringify(i.addons.sort()) === JSON.stringify(prospectiveTrayRecord.addons.sort()));
+        if(matchedIndex > -1) { cart[matchedIndex].quantity += 1; } else { cart.push(prospectiveTrayRecord); }
+
+        syncCartUI(); closeCustomModal();
+        if(!document.getElementById('cartSidebar').classList.contains('open')) toggleCart();
+    }
+
+    function syncCartUI() {
+        localStorage.setItem('brwd_cart_data', JSON.stringify(cart));
+
+        const listNode = document.getElementById('cartItemsList');
+        let subtotalAccumulator = 0; let piecesAccumulator = 0;
+        listNode.innerHTML = "";
+
+        cart.forEach((item, index) => {
+            piecesAccumulator += item.quantity; const lineCost = item.unitPrice * item.quantity; subtotalAccumulator += lineCost;
+            let descriptors = [];
+            if(item.grain !== "N/A") descriptors.push(`Grains: ${item.grain}`);
+            if(item.sugar !== "N/A") descriptors.push(`Sugar: ${item.sugar}`);
+            if(item.addons.length > 0) descriptors.push(`Addons: ${item.addons.join(', ')}`);
+
+            const itemCard = document.createElement('div');
+            itemCard.className = "cart-item";
+            itemCard.innerHTML = `
+                <div class="cart-item-details">
+                    <h4>${item.name}</h4>
+                    <span>${item.size}</span>
+                    <small class="cart-item-meta">${descriptors.join(' | ') || "No adjustments"}</small>
+                    <p>₱${lineCost}.00</p>
+                    <div class="quantity-controls">
+                        <button class="qty-btn" onclick="modifyQuantity(${index}, -1)">-</button>
+                        <strong>${item.quantity}</strong>
+                        <button class="qty-btn" onclick="modifyQuantity(${index}, 1)">+</button>
+                    </div>
+                </div>
+            `;
+            listNode.appendChild(itemCard);
+        });
+        document.getElementById('cartCount').innerText = piecesAccumulator;
+        document.getElementById('cartTotal').innerText = `₱${subtotalAccumulator}.00`;
+    }
+
+    function modifyQuantity(idx, modifier) {
+        cart[idx].quantity += modifier;
+        if(cart[idx].quantity <= 0) cart.splice(idx, 1);
+        syncCartUI();
+    }
+
+    function startCheckoutSequence() {
+        if(cart.length === 0) { alert("Your tray is empty."); return; }
+        
+        const checkBtn = document.getElementById('startCheckoutBtn');
+        checkBtn.disabled = true;
+        checkBtn.innerText = "Checking Stock...";
+
+        const groupedCartItems = {};
+        cart.forEach(item => {
+            const comboKey = `${item.id}_${item.size}`;
+            if (!groupedCartItems[comboKey]) {
+                groupedCartItems[comboKey] = { id: item.id, name: item.name, size: item.size, requestedQty: 0 };
+            }
+            groupedCartItems[comboKey].requestedQty += item.quantity;
+        });
+
+        const uniqueProductIds = [...new Set(cart.map(item => item.id))];
+        const stockChecks = uniqueProductIds.map(prodId => db.collection("inventory").doc(prodId).get());
+
+        Promise.all(stockChecks).then(snapshots => {
+            const stockMap = {};
+            snapshots.forEach(doc => {
+                if (doc.exists) {
+                    stockMap[doc.id] = doc.data();
+                }
+            });
+
+            for (const key in groupedCartItems) {
+                const requested = groupedCartItems[key].requestedQty;
+                const prodId = groupedCartItems[key].id;
+                const variantName = groupedCartItems[key].size;
+                const pName = groupedCartItems[key].name;
+
+                let availableStock = 15; 
+                if (stockMap[prodId] && stockMap[prodId][variantName] !== undefined) {
+                    availableStock = parseInt(stockMap[prodId][variantName]);
+                }
+
+                if (availableStock <= 0) {
+                    alert(`Sorry! ${pName} (${variantName}) is currently sold out in our management system.`);
+                    checkBtn.disabled = false;
+                    checkBtn.innerText = "Place Order";
+                    return;
+                }
+
+                if (requested > availableStock) {
+                    alert(`Insufficient stock! You ordered ${requested} items of ${pName} (${variantName}), but the stock is only ${availableStock}.`);
+                    checkBtn.disabled = false;
+                    checkBtn.innerText = "Place Order";
+                    return;
+                }
+            }
+
+            currentCheckoutStep = 1;
+            document.getElementById('checkoutStep1').style.display = "block";
+            document.getElementById('checkoutStep2').style.display = "none";
+            document.getElementById('checkoutNextBtn').innerText = "Next Step";
+            document.getElementById('checkoutModalOverlay').classList.add('show');
+            checkBtn.disabled = false;
+            checkBtn.innerText = "Place Order";
+
+        }).catch(err => {
+            console.error("Error validating inventory: ", err);
+            alert("Error trying to verify stock information.");
+            checkBtn.disabled = false;
+            checkBtn.innerText = "Place Order";
+        });
+    }
+
+    function closeCheckoutModal() { document.getElementById('checkoutModalOverlay').classList.remove('show'); }
+    function closeGcashPopupAndCancel() { document.getElementById('gcashPopupOverlay').classList.remove('show'); cachedOrderPayload = null; }
+
+    function resetKiosk() {
+        localStorage.removeItem('has_started_ordering');
+        localStorage.removeItem('brwd_cart_data');
+        cart = [];
+        syncCartUI();
+        document.getElementById('splashScreen').classList.remove('hide');
+    }
+
+    function processCheckoutNext() {
+        if(currentCheckoutStep === 1) {
+            currentCheckoutStep = 2;
+            document.getElementById('checkoutStep1').style.display = "none";
+            document.getElementById('checkoutStep2').style.display = "block";
+            document.getElementById('checkoutNextBtn').innerText = "Submit Order";
+        } else if(currentCheckoutStep === 2) {
+            const rawName = document.getElementById('customerNameInput').value.trim();
+            if(!rawName) { alert("Please enter your name."); return; }
+
+            const paymentMethodSelected = document.querySelector('input[name="paymentMethod"]:checked').value;
+            let transactionSumTotal = 0;
+            
+            const dynamicItemizedPackageDocs = cart.map(i => {
+                transactionSumTotal += (i.unitPrice * i.quantity);
+                return { productId: i.id, productName: i.name, selectedSize: i.size, grainVariant: i.grain, sugarLevel: i.sugar, addonsSelected: i.addons, itemUnitPrice: i.unitPrice, purchasedQuantity: i.quantity };
+            });
+
+            cachedOrderPayload = { customerName: rawName, paymentMethod: paymentMethodSelected, items: dynamicItemizedPackageDocs, totalAmount: transactionSumTotal, orderStatus: "Pending", timestamp: firebase.firestore.FieldValue.serverTimestamp() };
+
+            if(paymentMethodSelected === "GCash") {
+                closeCheckoutModal();
+                document.getElementById('gcashModalAmountDisplay').innerText = `PHP ${transactionSumTotal.toFixed(2)}`;
+                document.getElementById('gcashPopupOverlay').classList.add('show');
+            } else {
+                finalizeOrderSubmission();
+            }
+        }
+    }
+
+    function commitOrderAndLaunchGCashApp() {
+        if(!cachedOrderPayload) return;
+        document.getElementById('gcashPopupOverlay').classList.remove('show');
+        
+        db.runTransaction((transaction) => {
+            const updates = [];
+            cart.forEach((item) => {
+                const docRef = db.collection("inventory").doc(item.id);
+                updates.push({ ref: docRef, variant: item.size, qty: item.quantity, name: item.name });
+            });
+
+            return Promise.all(updates.map(u => transaction.get(u.ref))).then((docs) => {
+                updates.forEach((u, idx) => {
+                    const doc = docs[idx];
+                    let currentStock = (doc.exists && doc.data()[u.variant] !== undefined) ? doc.data()[u.variant] : 15;
+                    if (currentStock < u.qty) return Promise.reject({ type: "SOLD_OUT", items: [`${u.name} (${u.variant})`] });
+                    transaction.set(u.ref, { [u.variant]: currentStock - u.qty }, { merge: true });
+                });
+                const newOrderRef = db.collection("orders").doc();
+                transaction.set(newOrderRef, cachedOrderPayload);
+            });
+        }).then(() => {
+            resetKiosk();
+            window.location.href = "https://m.gcash.com/ul/v1/or";
+        }).catch((err) => { 
+            console.error(err);
+            alert("Order failed. Please check your connection.");
+        });
+    }
+
+    function finalizeOrderSubmission() {
+        if(!cachedOrderPayload) return;
+        const submitBtn = document.getElementById('checkoutNextBtn');
+        submitBtn.disabled = true;
+
+        db.runTransaction((transaction) => {
+            const updates = [];
+            cart.forEach((item) => {
+                const docRef = db.collection("inventory").doc(item.id);
+                updates.push({ ref: docRef, variant: item.size, qty: item.quantity, name: item.name });
+            });
+            return Promise.all(updates.map(u => transaction.get(u.ref))).then((docs) => {
+                updates.forEach((u, idx) => {
+                    const doc = docs[idx];
+                    let currentStock = (doc.exists && doc.data()[u.variant] !== undefined) ? doc.data()[u.variant] : 15;
+                    if (currentStock < u.qty) return Promise.reject({ type: "SOLD_OUT" });
+                    transaction.set(u.ref, { [u.variant]: currentStock - u.qty }, { merge: true });
+                });
+                const newOrderRef = db.collection("orders").doc();
+                transaction.set(newOrderRef, cachedOrderPayload);
+                return newOrderRef;
+            });
+        }).then(() => {
+            alert("Order placed successfully!");
+            resetKiosk();
+            closeCheckoutModal();
+        }).catch((error) => { 
+            alert("Error processing order."); 
+        })
+        .finally(() => { submitBtn.disabled = false; });
+    }
+</script>
+</body>
+</html>
